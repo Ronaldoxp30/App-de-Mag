@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Controle Financeiro</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Barlow Condensed', sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #1c1c1c;
+      color: #f1f1f1;
+    }
+    header {
+      background-color: #111;
+      padding: 20px;
+      text-align: center;
+      font-size: 24px;
+      color: #f1c40f;
+    }
+    .container {
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+    }
+    input {
+      width: 160px;
+    }
+    button {
+      background-color: #f1c40f;
+      color: #111;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .section {
+      margin-top: 20px;
+      padding: 10px;
+      background: #2c2c2c;
+      border-radius: 10px;
+    }
+    .item {
+      margin: 5px 0;
+    }
+    canvas {
+      margin-top: 20px;
+      background: transparent;
+      border-radius: 10px;
+      max-width: 100%;
+      max-height: 300px;
+      display: block;
+    }
+    nav {
+      text-align: center;
+      background: #333;
+    }
+    nav button {
+      margin: 5px;
+    }
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      padding: 10px;
+      background: #111;
+      color: #aaa;
+    }
+    .tab { display: none; }
+    .tab.active { display: block; }
+  </style>
+</head>
+<body>
+  <header>Controle Financeiro</header>
+  <nav>
+    <button onclick="changeTab('main')">Principal</button>
+    <button onclick="changeTab('history')">Histórico</button>
+    <button onclick="window.location.href='Calculadora.html'">Calculadora</button>
+  </nav>
+
+  <!-- Principal -->
+  <div class="container tab active" id="main">
+    <h3>Adicionar Ganho</h3>
+    <input type="number" id="gain" placeholder="Valor ganho" />
+    <input type="date" id="gainDate" />
+    <input type="text" id="gainDesc" placeholder="Descrição" />
+    <button onclick="addGain()">Adicionar</button>
+
+    <h3>Adicionar Custo Fixo</h3>
+    <input type="number" id="custoFixo" placeholder="Valor" />
+    <input type="date" id="custoFixoDate" />
+    <input type="text" id="custoFixoDesc" placeholder="Descrição" />
+    <button onclick="addCustoFixo()">Adicionar</button>
+
+    <h3>Adicionar Custo Avulso</h3>
+    <input type="number" id="custoAvulso" placeholder="Valor" />
+    <input type="date" id="custoAvulsoDate" />
+    <input type="text" id="custoAvulsoDesc" placeholder="Descrição" />
+    <button onclick="addCustoAvulso()">Adicionar</button>
+
+    <button onclick="clearAll()">Limpar Tudo</button>
+    <button onclick="finalizeMonth()">Finalizar Mês</button>
+
+    <div class="section" id="gainList"></div>
+    <div class="section" id="custoFixoList"></div>
+    <div class="section" id="custoAvulsoList"></div>
+    <div class="section" id="monthSummary"></div>
+
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- Histórico -->
+  <div class="container tab" id="history">
+    <div id="historicContainer"></div>
+  </div>
+
+  <footer>Desenvolvido por: Ronaldo Silva Dos Santos</footer>
+
+<script>
+  const gains = JSON.parse(localStorage.getItem('gains')) || [];
+  const custosFixos = JSON.parse(localStorage.getItem('custosFixos')) || [];
+  const custosAvulsos = JSON.parse(localStorage.getItem('custosAvulsos')) || [];
+  const monthHistory = JSON.parse(localStorage.getItem('monthHistory')) || [];
+
+  function saveData() {
+    localStorage.setItem('gains', JSON.stringify(gains));
+    localStorage.setItem('custosFixos', JSON.stringify(custosFixos));
+    localStorage.setItem('custosAvulsos', JSON.stringify(custosAvulsos));
+    localStorage.setItem('monthHistory', JSON.stringify(monthHistory));
+  }
+
+  function changeTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    if (tab === 'history') renderHistory();
+  }
+
+  // Ganhos
+  function addGain() {
+    const valor = parseFloat(document.getElementById('gain').value);
+    const data = document.getElementById('gainDate').value;
+    const desc = document.getElementById('gainDesc').value;
+    if (!valor || !data) return alert('Preencha valor e data.');
+    gains.push({ valor, data, desc });
+    saveData();
+    renderGains();
+  }
+  function deleteGain(i) {
+    gains.splice(i, 1);
+    saveData(); renderGains();
+  }
+
+  // Custos Fixos
+  function addCustoFixo() {
+    const valor = parseFloat(document.getElementById('custoFixo').value);
+    const data = document.getElementById('custoFixoDate').value;
+    const desc = document.getElementById('custoFixoDesc').value;
+    if (!valor || !data) return alert('Preencha valor e data.');
+    custosFixos.push({ valor, data, desc });
+    saveData();
+    renderCustosFixos();
+  }
+  function deleteCustoFixo(i) {
+    custosFixos.splice(i, 1);
+    saveData(); renderCustosFixos();
+  }
+
+  // Custos Avulsos
+  function addCustoAvulso() {
+    const valor = parseFloat(document.getElementById('custoAvulso').value);
+    const data = document.getElementById('custoAvulsoDate').value;
+    const desc = document.getElementById('custoAvulsoDesc').value;
+    if (!valor || !data) return alert('Preencha valor e data.');
+    custosAvulsos.push({ valor, data, desc });
+    saveData();
+    renderCustosAvulsos();
+  }
+  function deleteCustoAvulso(i) {
+    custosAvulsos.splice(i, 1);
+    saveData(); renderCustosAvulsos();
+  }
+
+  // Limpar tudo
+  function clearAll() {
+    if (confirm("Deseja apagar todos os dados?")) {
+      gains.length = 0;
+      custosFixos.length = 0;
+      custosAvulsos.length = 0;
+      saveData();
+      renderAll();
+    }
+  }
+
+  // Finalizar mês
+  function finalizeMonth() {
+    const month = prompt('Digite o nome do mês:');
+    if (!month) return;
+    monthHistory.push({
+      month,
+      ganhos: [...gains],
+      custosFixos: [...custosFixos],
+      custosAvulsos: [...custosAvulsos]
+    });
+    gains.length = 0;
+    custosFixos.length = 0;
+    custosAvulsos.length = 0;
+    saveData();
+    renderAll();
+    alert('Mês finalizado e salvo no histórico.');
+  }
+
+  // Renderizadores
+  function renderGains() {
+    const c = document.getElementById('gainList');
+    c.innerHTML = "<h3>Ganhos</h3>";
+    let total = 0;
+    gains.forEach((g,i) => {
+      total += g.valor;
+      c.innerHTML += `<div class="item">${g.data} - R$${g.valor.toFixed(2)} - ${g.desc||''} 
+        <button onclick="deleteGain(${i})">Excluir</button></div>`;
+    });
+    if (gains.length) c.innerHTML += `<strong>Total: R$${total.toFixed(2)}</strong>`;
+    renderSummary();
+  }
+
+  function renderCustosFixos() {
+    const c = document.getElementById('custoFixoList');
+    c.innerHTML = "<h3>Custos Fixos</h3>";
+    let total = 0;
+    custosFixos.forEach((f,i) => {
+      total += f.valor;
+      c.innerHTML += `<div class="item">${f.data} - R$${f.valor.toFixed(2)} - ${f.desc||''} 
+        <button onclick="deleteCustoFixo(${i})">Excluir</button></div>`;
+    });
+    if (custosFixos.length) c.innerHTML += `<strong>Total: R$${total.toFixed(2)}</strong>`;
+    renderSummary();
+  }
+
+  function renderCustosAvulsos() {
+    const c = document.getElementById('custoAvulsoList');
+    c.innerHTML = "<h3>Custos Avulsos</h3>";
+    let total = 0;
+    custosAvulsos.forEach((f,i) => {
+      total += f.valor;
+      c.innerHTML += `<div class="item">${f.data} - R$${f.valor.toFixed(2)} - ${f.desc||''} 
+        <button onclick="deleteCustoAvulso(${i})">Excluir</button></div>`;
+    });
+    if (custosAvulsos.length) c.innerHTML += `<strong>Total: R$${total.toFixed(2)}</strong>`;
+    renderSummary();
+  }
+
+  function renderSummary() {
+    const c = document.getElementById('monthSummary');
+    const totalG = gains.reduce((s,g)=>s+g.valor,0);
+    const totalF = custosFixos.reduce((s,f)=>s+f.valor,0);
+    const totalA = custosAvulsos.reduce((s,a)=>s+a.valor,0);
+    const saldo = totalG - (totalF+totalA);
+    c.innerHTML = `<h3>Resumo</h3>
+      Ganhos: R$${totalG.toFixed(2)} | 
+      Custos Fixos: R$${totalF.toFixed(2)} | 
+      Custos Avulsos: R$${totalA.toFixed(2)} <br>
+      <strong>Saldo: R$${saldo.toFixed(2)}</strong>`;
+    renderChart(totalG, totalF, totalA, saldo);
+  }
+
+  function renderChart(totalG, totalF, totalA, saldo) {
+    const ctx = document.getElementById('chart').getContext('2d');
+    if (window.myChart) window.myChart.destroy();
+    window.myChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Ganhos','Custos Fixos','Custos Avulsos','Saldo'],
+        datasets: [{
+          label: 'R$',
+          data: [totalG, totalF, totalA, saldo],
+          backgroundColor: ['#2ecc71','#e74c3c','#e67e22','#3498db']
+        }]
+      },
+      options: { responsive: true }
+    });
+  }
+
+  function renderHistory() {
+    const c = document.getElementById('historicContainer');
+    c.innerHTML = "";
+    monthHistory.forEach((m,idx)=>{
+      const totalG = m.ganhos.reduce((s,g)=>s+g.valor,0);
+      const totalF = m.custosFixos.reduce((s,f)=>s+f.valor,0);
+      const totalA = m.custosAvulsos.reduce((s,a)=>s+a.valor,0);
+      const saldo = totalG - (totalF+totalA);
+      const div = document.createElement('div');
+      div.className = "section";
+      div.innerHTML = `<strong>${m.month}</strong><br>
+        Ganhos: R$${totalG.toFixed(2)} | Custos Fixos: R$${totalF.toFixed(2)} | Custos Avulsos: R$${totalA.toFixed(2)}<br>
+        <strong>Saldo: R$${saldo.toFixed(2)}</strong><br>
+        <button onclick="exportPDF(${idx})">Exportar PDF</button>
+        <button onclick="exportExcel(${idx})">Exportar Excel</button>
+        <button onclick="deleteHistory(${idx})">Excluir</button>`;
+      c.appendChild(div);
+    });
+  }
+
+  function deleteHistory(i){
+    if(confirm("Excluir histórico?")){
+      monthHistory.splice(i,1);
+      saveData(); renderHistory();
+    }
+  }
+
+  function exportPDF(i){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const m = monthHistory[i];
+    let y=10;
+    doc.text(`Resumo: ${m.month}`,10,y); y+=10;
+    m.ganhos.forEach(g=>{doc.text(`Ganho: ${g.data} - R$${g.valor.toFixed(2)} - ${g.desc||''}`,10,y);y+=10});
+    m.custosFixos.forEach(f=>{doc.text(`Fixo: ${f.data} - R$${f.valor.toFixed(2)} - ${f.desc||''}`,10,y);y+=10});
+    m.custosAvulsos.forEach(a=>{doc.text(`Avulso: ${a.data} - R$${a.valor.toFixed(2)} - ${a.desc||''}`,10,y);y+=10});
+    const totalG = m.ganhos.reduce((s,g)=>s+g.valor,0);
+    const totalF = m.custosFixos.reduce((s,f)=>s+f.valor,0);
+    const totalA = m.custosAvulsos.reduce((s,a)=>s+a.valor,0);
+    const saldo = totalG-(totalF+totalA);
+    y+=10; doc.text(`Saldo: R$${saldo.toFixed(2)}`,10,y);
+    doc.save(`${m.month}.pdf`);
+  }
+
+  function exportExcel(i){
+    const m = monthHistory[i];
+    const data = [
+      ...m.ganhos.map(g=>({Tipo:'Ganho',Data:g.data,Valor:g.valor,Descricao:g.desc})),
+      ...m.custosFixos.map(f=>({Tipo:'Custo Fixo',Data:f.data,Valor:f.valor,Descricao:f.desc})),
+      ...m.custosAvulsos.map(a=>({Tipo:'Custo Avulso',Data:a.data,Valor:a.valor,Descricao:a.desc}))
+    ];
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Resumo");
+    XLSX.writeFile(wb,`${m.month}.xlsx`);
+  }
+
+  function renderAll(){renderGains();renderCustosFixos();renderCustosAvulsos();}
+
+  renderAll();
+</script>
+</body>
+</html>
