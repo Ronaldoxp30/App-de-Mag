@@ -349,6 +349,23 @@
   function renderAll(){renderGains();renderCustosFixos();renderCustosAvulsos();}
 
   renderAll();
+  // Limpar tudo
+function clearAll() {
+  const senha = prompt("Digite a senha para limpar os dados:");
+  if (senha !== "123") {
+    alert("Senha incorreta! Operação cancelada.");
+    return;
+  }
+  if (confirm("Deseja apagar todos os dados?")) {
+    gains.length = 0;
+    custosFixos.length = 0;
+    custosAvulsos.length = 0;
+    saveData();
+    renderAll();
+    alert("Todos os dados foram apagados com sucesso!");
+  }
+}
+
 </script>
 </body>
 </html>
